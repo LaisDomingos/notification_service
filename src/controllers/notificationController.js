@@ -1,7 +1,6 @@
 const { Expo } = require('expo-server-sdk');
 const DeviceToken = require('../models/DeviceToken');
 const establishmentsData = require('../../services/establishments.json');
-const { isExpiringToday } = require('../utils/dateUtils.js');
 const axios = require('axios');
 const expo = new Expo();
 
@@ -15,29 +14,6 @@ async function isUserActive(email) {
     return response.data;
   } catch (error) {
     console.error(`⚠️ Erro ao buscar usuário com email ${email}:`, error.message);
-    return false;
-  }
-}
-
-// API - Busca favoritos
-async function favoritesUser(userId) {
-  try {
-    const response = await axios.get(`${apiUrl}/user/favorites/${userId}`);
-    console.log("favorites: ", response.data)
-    return response.data.favorites;
-  } catch (error) {
-    console.error(`⚠️ Erro ao buscar favoritos do usuário ${userId}:`, error.message);
-    return false;
-  }
-}
-
-// API - Localização
-async function locationUser(userId) {
-  try {
-    const response = await axios.get(`${apiUrl}/user/location/${userId}`);
-    return response.data;
-  } catch (error) {
-    console.error(`⚠️ Erro ao buscar localização do usuário ${userId}:`, error.message);
     return false;
   }
 }
