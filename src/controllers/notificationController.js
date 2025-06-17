@@ -11,6 +11,7 @@ const apiUrl = process.env.API_URL;
 async function isUserActive(email) {
   try {
     const response = await axios.get(`${apiUrl}/user/email/${email}`);
+    console.log("user: ", response.data)
     return response.data;
   } catch (error) {
     console.error(`⚠️ Erro ao buscar usuário com email ${email}:`, error.message);
@@ -19,23 +20,24 @@ async function isUserActive(email) {
 }
 
 // API - Busca favoritos
-async function favoritesUser(userRut) {
+async function favoritesUser(userId) {
   try {
-    const response = await axios.get(`${apiUrl}/favorite/${userRut}`);
+    const response = await axios.get(`${apiUrl}/user/favorites/${userId}`);
+    console.log("favorites: ", response.data)
     return response.data.favorites;
   } catch (error) {
-    console.error(`⚠️ Erro ao buscar favoritos do usuário ${userRut}:`, error.message);
+    console.error(`⚠️ Erro ao buscar favoritos do usuário ${userId}:`, error.message);
     return false;
   }
 }
 
 // API - Localização
-async function locationUser(email) {
+async function locationUser(userId) {
   try {
-    const response = await axios.get(`${apiUrl}/location/${email}`);
+    const response = await axios.get(`${apiUrl}/user/location/${userId}`);
     return response.data;
   } catch (error) {
-    console.error(`⚠️ Erro ao buscar localização do usuário ${email}:`, error.message);
+    console.error(`⚠️ Erro ao buscar localização do usuário ${userId}:`, error.message);
     return false;
   }
 }
@@ -99,74 +101,57 @@ async function sendScheduledNotification() {
       console.log(`Token inválido, ignorando: ${token}`);
       continue;
     }
-    // Verifica se o usuário existe e está ativo
+
+    // Busca dados do usuário (já vem com favorites e localização)
     const userData = await isUserActive(email);
     if (!userData || !userData.active) {
       console.log(`Usuário inativo ou não encontrado: ${email}`);
       continue;
     }
 
-    // Pega os estabelecimentos favoritos e a última localização do usuário
-    const favs = await favoritesUser(userData.rut);
-    console.log("[]: ", favs)
-    const [userLocation] = await locationUser(email);
+    const favs = userData.favorites || [];
+    const userLatitude = userData.latitude;
+    const userLongitude = userData.longitude;
 
-    // Checa se o usuário tem favoritos e localização. 
-    const temFavoritos = favs && favs.length > 0;
-    const temLocalizacao = userLocation?.latitude && userLocation?.longitude;
+    const temFavoritos = favs.length > 0;
+    const temLocalizacao = userLatitude != null && userLongitude != null;
 
-    // Variável que vai guardar o escolhido para notificação
     let estabelecimentoParaNotificar = null;
 
-    // Filtra os dados gerais de estabelecimentos e pega só os que são favoritos desse usuário
+    // Filtra estabelecimentos que são favoritos do usuário
     const favoritosEncontrados = temFavoritos
       ? establishmentsData.filter(estab => favs.includes(estab.nome_estabelecimento))
       : [];
 
-    // Define o dia de hoje no formato YYYY-MM-DD (pra comparar com datas de validade dos descontos).
     const hoje = new Date().toISOString().split('T')[0];
 
-    // Filtra os que ainda estão válidos, ordena por data de validade e se não escolhe um aletatório
     function escolherMaisProximoAVencer(lista) {
       const candidatos = lista.filter(e => e.vigencia >= hoje);
-
       if (!candidatos.length) return null;
 
       const ordenados = candidatos.sort((a, b) => new Date(a.vigencia) - new Date(b.vigencia));
       const maisProximaData = ordenados[0]?.vigencia;
-
-      // Filtra todos com mesma data
       const empatados = ordenados.filter(e => e.vigencia === maisProximaData);
-      return choiceRandom(empatados); // Escolhe aleatório entre os empatados
+      return choiceRandom(empatados);
     }
-    // Regra 1: Se não tem favoritos, pega qualquer estabelecimento que vence mais cedo.
+
     if (!temFavoritos) {
-      console.log("não tem favoritos")
       estabelecimentoParaNotificar = escolherMaisProximoAVencer(establishmentsData);
-
-    }
-    // Regra 2: Tem favoritos, mas não tem localização. Escolhe o favorito mais próximo a vencer.
-    else if (temFavoritos && !temLocalizacao) {
-      console.log("Tem favoritos, mas não tem localização")
+    } else if (temFavoritos && !temLocalizacao) {
       estabelecimentoParaNotificar = escolherMaisProximoAVencer(favoritosEncontrados);
-
-    }
-    //  Regras 3 e 4: Tem favoritos e localização
-    else if (temFavoritos && temLocalizacao) {
-      console.log("tem tudo")
+    } else if (temFavoritos && temLocalizacao) {
       let dentroDoRaio = null;
       let maisProximoAVencer = null;
 
       for (const estab of favoritosEncontrados) {
-        // Se não tem endereço, não dá pra calcular distância, então pula.
         if (!estab.endereco) continue;
 
         const coords = await getCoordinatesFromAddress(estab.endereco);
         if (!coords) continue;
 
         const distancia = isWithinRadius(
-          userLocation.latitude,
-          userLocation.longitude,
+          userLatitude,
+          userLongitude,
           coords.lat,
           coords.lon,
           999999,
@@ -177,7 +162,7 @@ async function sendScheduledNotification() {
           dentroDoRaio = estab;
           break;
         }
-        // Caso não tenha nenhum proximo, guarda o favorito com vencimento mais próximo como plano B
+
         if (
           !maisProximoAVencer ||
           new Date(estab.vigencia) < new Date(maisProximoAVencer.vigencia)
@@ -185,12 +170,11 @@ async function sendScheduledNotification() {
           maisProximoAVencer = estab;
         }
       }
-      // Se ninguém está perto, mas tem favoritos prestes a vencer, escolhe um deles aleatoriamente. 
+
       if (!dentroDoRaio) {
         if (!maisProximoAVencer) {
           maisProximoAVencer = escolherMaisProximoAVencer(favoritosEncontrados);
         }
-
         if (maisProximoAVencer) {
           const mesmaData = favoritosEncontrados.filter(
             e => e.vigencia === maisProximoAVencer.vigencia
@@ -200,7 +184,6 @@ async function sendScheduledNotification() {
       } else {
         estabelecimentoParaNotificar = dentroDoRaio;
       }
-
     }
 
     if (!estabelecimentoParaNotificar) {
@@ -209,7 +192,7 @@ async function sendScheduledNotification() {
     }
 
     const bodyMsg =
-      temFavoritos && temLocalizacao && estabelecimentoParaNotificar === estabelecimentoParaNotificar
+      temFavoritos && temLocalizacao
         ? `¡Estás cerca de ${estabelecimentoParaNotificar.nome_estabelecimento}! Aprovecha el descuento de ${estabelecimentoParaNotificar.desconto}.`
         : `${estabelecimentoParaNotificar.nome_estabelecimento} tiene un descuento especial: ${estabelecimentoParaNotificar.desconto}.`;
 
@@ -223,7 +206,6 @@ async function sendScheduledNotification() {
   }
 
   const chunks = expo.chunkPushNotifications(mensagens);
-
   try {
     for (let chunk of chunks) {
       await expo.sendPushNotificationsAsync(chunk);
@@ -233,5 +215,6 @@ async function sendScheduledNotification() {
     throw error;
   }
 }
+
 
 module.exports = { sendScheduledNotification };
