@@ -1,8 +1,11 @@
 const { Expo } = require('expo-server-sdk');
 const DeviceToken = require('../models/DeviceToken');
-const establishmentsData = require('../../services/establishments.json');
 const axios = require('axios');
 const expo = new Expo();
+
+const fs = require('fs').promises;
+const path = require('path');
+
 
 const apiUrl = process.env.API_URL;
 
@@ -64,6 +67,10 @@ function choiceRandom(lista) {
 
 // Função principal
 async function sendScheduledNotification() {
+  // Lê o JSON toda vez que roda a notificação:
+  const dataRaw = await fs.readFile(path.resolve(__dirname, '../../services/establishments.json'), 'utf-8');
+  const establishmentsData = JSON.parse(dataRaw);
+
   const allTokens = await DeviceToken.find();
   if (!allTokens.length) {
     console.log('Nenhum token registrado para receber notificações.');

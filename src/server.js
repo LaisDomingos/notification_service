@@ -1,7 +1,7 @@
 // Carrega as variáveis de ambiente
 require('dotenv').config();
 
-const cors = require("cors"); 
+const cors = require("cors");
 const express = require('express');
 const notificationRoutes = require('./routes/notification');
 const connectToDatabase = require('./config/database');
@@ -14,7 +14,7 @@ const { sendScheduledNotification } = require('./controllers/notificationControl
 
 const app = express();
 const PORT = process.env.PORT || 4003;
-const CRON_SCHEDULE = process.env.CRON_SCHEDULE || '0 18 * * *'; // Fallback: 18h todo dia
+const CRON_SCHEDULE = process.env.CRON_SCHEDULE || '0 19 * * *'; // Fallback: 18h todo dia
 
 // Conecta ao banco de dados
 connectToDatabase();
@@ -38,6 +38,8 @@ cron.schedule(CRON_SCHEDULE, async () => {
   } catch (error) {
     console.error('❌ Erro ao enviar notificações:', error);
   }
+}, {
+  timezone: "Europe/Lisbon"
 });
 
 // Inicializa o servidor
