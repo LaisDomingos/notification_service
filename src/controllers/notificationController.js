@@ -3,17 +3,13 @@ const DeviceToken = require('../models/DeviceToken');
 const axios = require('axios');
 const expo = new Expo();
 
-const fs = require('fs').promises;
-const path = require('path');
-
-
 const apiUrl = process.env.API_URL;
 
-// API - Verifica se o usuário está ativo
+// 🔎 Busca se o usuário está ativo
 async function isUserActive(email) {
   try {
     const response = await axios.get(`${apiUrl}/user/email/${email}`);
-    console.log("user: ", response.data)
+    console.log("user: ", response.data);
     return response.data;
   } catch (error) {
     console.error(`⚠️ Erro ao buscar usuário com email ${email}:`, error.message);
@@ -21,7 +17,7 @@ async function isUserActive(email) {
   }
 }
 
-// Coordenadas a partir do endereço
+// 📍 Converte endereço para coordenadas
 async function getCoordinatesFromAddress(endereco) {
   try {
     const url = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(endereco)}`;
@@ -42,7 +38,7 @@ async function getCoordinatesFromAddress(endereco) {
   }
 }
 
-// Verifica se está dentro do raio OU retorna a distância
+// 🧠 Verifica se está dentro do raio ou retorna distância
 function isWithinRadius(lat1, lon1, lat2, lon2, radiusKm = 1, returnDistance = false) {
   const toRad = (value) => (value * Math.PI) / 180;
   const R = 6371;
@@ -59,17 +55,25 @@ function isWithinRadius(lat1, lon1, lat2, lon2, radiusKm = 1, returnDistance = f
   return returnDistance ? distance : distance <= radiusKm;
 }
 
-// Envia notificação programada
-// Util para escolher um aleatório de um array
+// 🎲 Escolhe item aleatório
 function choiceRandom(lista) {
   return lista[Math.floor(Math.random() * lista.length)];
 }
 
-// Função principal
+// 🔔 Função principal
 async function sendScheduledNotification() {
-  // Lê o JSON toda vez que roda a notificação:
-  const dataRaw = await fs.readFile(path.resolve(__dirname, '../../services/establishments.json'), 'utf-8');
-  const establishmentsData = JSON.parse(dataRaw);
+  // 👉 Busca os estabelecimentos da API
+  const establishmentsData = await axios.get(`${apiUrl}/benefit`)
+    .then(res => res.data)
+    .catch(err => {
+      console.error("❌ Erro ao buscar estabelecimentos da API:", err.message);
+      return [];
+    });
+
+  if (!establishmentsData.length) {
+    console.log("Nenhum estabelecimento retornado pela API.");
+    return;
+  }
 
   const allTokens = await DeviceToken.find();
   if (!allTokens.length) {
@@ -85,7 +89,6 @@ async function sendScheduledNotification() {
       continue;
     }
 
-    // Busca dados do usuário (já vem com favorites e localização)
     const userData = await isUserActive(email);
     if (!userData || !userData.active) {
       console.log(`Usuário inativo ou não encontrado: ${email}`);
@@ -101,7 +104,6 @@ async function sendScheduledNotification() {
 
     let estabelecimentoParaNotificar = null;
 
-    // Filtra estabelecimentos que são favoritos do usuário
     const favoritosEncontrados = temFavoritos
       ? establishmentsData.filter(estab => favs.includes(estab.nome_estabelecimento))
       : [];
@@ -198,6 +200,5 @@ async function sendScheduledNotification() {
     throw error;
   }
 }
-
 
 module.exports = { sendScheduledNotification };
