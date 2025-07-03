@@ -41,6 +41,9 @@ CRON_SCHEDULE=00 19 * * *  # Agendamento diário (19:00)
 ```
 
 ## 🧪 Testando Endpoints
+⚠️ Observação: Este serviço está hospedado no Render, que entra em modo inativo após um tempo de ociosidade. A primeira requisição pode demorar alguns segundos para “acordar” o servidor. Aguarde com carinho e paciência. 💅✨
+
+
 Registrar Token
 POST /api/notification/register
 
@@ -65,4 +68,4 @@ json
 ```
 
 ## 📚 Documentação com Swagger
-Acesse a documentação Swagger na URL: 
+Acesse a documentação Swagger na URL: https://notification-service-4ix0.onrender.com/api-docs/
