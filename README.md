@@ -16,7 +16,6 @@ Este é um microserviço de notificações push desenvolvido com **Node.js**, **
 - MongoDB + Mongoose
 - Expo Server SDK (Push Notifications)
 - Node-Cron (para agendamento)
-- OpenStreetMap (Nominatim API para geolocalização)
 - Swagger (OpenAPI 3.0)
 
 ---
