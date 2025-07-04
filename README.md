@@ -35,7 +35,6 @@ env
 ```bash
 PORT=4003
 MONGO_URI=mongodb://localhost:27017/notification_service
-API_URL=http://seu-outro-servico.com/api
 CRON_SCHEDULE=00 19 * * *  # Agendamento diário (19:00)
 ```
 
